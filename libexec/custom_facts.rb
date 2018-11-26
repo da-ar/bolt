@@ -4,6 +4,7 @@
 require 'json'
 require 'puppet'
 require 'puppet/module_tool/tar'
+require 'puppet/util/network_device'
 require 'tempfile'
 
 args = JSON.parse(STDIN.read)
@@ -29,7 +30,33 @@ Dir.mktmpdir do |puppet_root|
     $LOAD_PATH << dir unless $LOAD_PATH.include?(dir)
   end
 
+  if (conn_info = args['_target'])
+
+    unless conn_info['type']
+      puts "Cannot collect facts for a remote target without knowing it's type."
+      exit 1
+    end
+    # Some valid bolt urls like file:///tmp/foo don't have a host which means we don't have a name
+    unless conn_info['host']
+      puts "Cannot collect facts for a remote target with a host in it's name"
+    end
+
+    # TODO: validate_target
+    special_keys = %w[type debug uri]
+    connection = conn_info.reject { |k, _| special_keys.include?(k) }
+    device = OpenStruct.new(connection)
+    device.url = conn_info['uri']
+    device.provider = conn_info['type']
+    device.options = { debug: true } if conn_info['debug']
+    Puppet[:facts_terminus] = :network_device
+    Puppet[:certname] = device.name
+    Puppet::Util::NetworkDevice.init(device)
+  end
+
   facts = Puppet::Node::Facts.indirection.find(SecureRandom.uuid, environment: env)
+
+  # CODEREVIEW: the device command does this should we?
+  facts.name = facts.values['clientcert']
   puts(facts.values.to_json)
 end
 

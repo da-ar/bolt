@@ -43,18 +43,26 @@ module Bolt
       @custom_facts_task ||= begin
         path = File.join(libexec, 'custom_facts.rb')
         file = { 'name' => 'custom_facts.rb', 'path' => path }
-        metadata = { 'supports_noop' => true, 'input_method' => 'stdin' }
+        metadata = { 'supports_noop' => true, 'input_method' => 'stdin',
+                     'implementations' => [
+                       { 'name' => 'custom_facts.rb' },
+                       { 'name' => 'custom_facts.rb', 'remote' => true }
+                     ] }
         Bolt::Task.new(name: 'apply_helpers::custom_facts', files: [file], metadata: metadata)
       end
     end
 
     def catalog_apply_task
       @catalog_apply_task ||= begin
-        path = File.join(libexec, 'apply_catalog.rb')
-        file = { 'name' => 'apply_catalog.rb', 'path' => path }
-        metadata = { 'supports_noop' => true, 'input_method' => 'stdin' }
-        Bolt::Task.new(name: 'apply_helpers::apply_catalog', files: [file], metadata: metadata)
-      end
+                                path = File.join(libexec, 'apply_catalog.rb')
+                                file = { 'name' => 'apply_catalog.rb', 'path' => path }
+                                metadata = { 'supports_noop' => true, 'input_method' => 'stdin',
+                                             'implementations' => [
+                                               { 'name' => 'apply_catalog.rb' },
+                                               { 'name' => 'apply_catalog.rb', 'remote' => true }
+                                             ] }
+                                Bolt::Task.new(name: 'apply_helpers::apply_catalog', files: [file], metadata: metadata)
+                              end
     end
 
     def query_resources_task

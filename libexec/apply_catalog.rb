@@ -6,6 +6,7 @@ require 'json'
 require 'puppet'
 require 'puppet/configurer'
 require 'puppet/module_tool/tar'
+require 'puppet/util/network_device'
 require 'securerandom'
 require 'tempfile'
 
@@ -48,7 +49,26 @@ begin
     $LOAD_PATH << dir unless $LOAD_PATH.include?(dir)
   end
 
+  if (conn_info = args['_target'])
+    unless conn_info['type']
+      puts "Cannot collect facts for a remote target without knowing it's type."
+      exit 1
+    end
+
+    # TODO: validate_target
+    special_keys = %w[type debug uri]
+    connection = conn_info.reject { |k, _| special_keys.include?(k) }
+    device = OpenStruct.new(connection)
+    device.url = conn_info['uri']
+    device.provider = conn_info['type']
+    device.options = { debug: true } if conn_info['debug']
+    Puppet[:facts_terminus] = :network_device
+    Puppet[:certname] = device.name
+    Puppet::Util::NetworkDevice.init(device)
+  end
+
   # Ensure custom facts are available for provider suitability tests
+  # TODO: skip this for devices?
   facts = Puppet::Node::Facts.indirection.find(SecureRandom.uuid, environment: env)
 
   report = if Puppet::Util::Package.versioncmp(Puppet.version, '5.0.0') > 0
@@ -57,8 +77,11 @@ begin
              Puppet::Transaction::Report.new('apply')
            end
 
-  Puppet.override(current_environment: env,
-                  loaders: Puppet::Pops::Loaders.new(env)) do
+  overrides = { current_environment: env,
+                loaders: Puppet::Pops::Loaders.new(env) }
+  overrides[:network_device] = true if args['_target']
+
+  Puppet.override(overrides) do
     catalog = Puppet::Resource::Catalog.from_data_hash(args['catalog'])
     catalog.environment = env.name.to_s
     catalog.environment_instance = env
