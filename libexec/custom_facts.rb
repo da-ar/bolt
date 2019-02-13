@@ -43,7 +43,11 @@ Dir.mktmpdir do |puppet_root|
 
     transport = Puppet::ResourceApi::Transport.connect(conn_info['type'], transport_conn_info)
     transport_wrapper = Puppet::ResourceApi::Transport::Wrapper.new(conn_info['type'], transport)
-    Puppet::Util::NetworkDevice.instance_variable_set(:@current, transport_wrapper)
+    if  Puppet::Util::NetworkDevice.respond_to?(:set_transport)
+      Puppet::Util::NetworkDevice.set_transport(conn_info['type'], transport_wrapper)
+    else
+      Puppet::Util::NetworkDevice.instance_variable_set(:@current, transport_wrapper)
+    end
 
     Puppet[:facts_terminus] = :network_device
     Puppet[:certname] = conn_info['uri']
