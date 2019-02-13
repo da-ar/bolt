@@ -31,27 +31,24 @@ Dir.mktmpdir do |puppet_root|
   end
 
   if (conn_info = args['_target'])
-
     unless conn_info['type']
       puts "Cannot collect facts for a remote target without knowing it's type."
       exit 1
     end
-    # Some valid bolt urls like file:///tmp/foo don't have a host which means we don't have a name
-    unless conn_info['host']
-      puts "Cannot collect facts for a remote target with a host in it's name"
-    end
 
-    # TODO: validate_target
-    special_keys = %w[type debug uri]
-    connection = conn_info.reject { |k, _| special_keys.include?(k) }
-    device = OpenStruct.new(connection)
-    device.url = conn_info['uri']
-    device.provider = conn_info['type']
-    device.options = { debug: true } if conn_info['debug']
+    require 'puppet/resource_api/transport'
+
+    # Transport.connect will modify this hash!
+    transport_conn_info =  conn_info.each_with_object({}) {|(k,v), h| h[k.to_sym] = v }
+
+    transport = Puppet::ResourceApi::Transport.connect(conn_info['type'], transport_conn_info)
+    transport_wrapper = Puppet::ResourceApi::Transport::Wrapper.new(conn_info['type'], transport)
+    Puppet::Util::NetworkDevice.instance_variable_set(:@current, transport_wrapper)
+
     Puppet[:facts_terminus] = :network_device
-    Puppet[:certname] = device.name
-    Puppet::Util::NetworkDevice.init(device)
+    Puppet[:certname] = conn_info['uri']
   end
+
 
   facts = Puppet::Node::Facts.indirection.find(SecureRandom.uuid, environment: env)
 

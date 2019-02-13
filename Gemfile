@@ -15,6 +15,12 @@ gem "rack", '>= 2.0.5'
 gem "rails-auth", '>= 2.1.4'
 gem "sinatra", '>= 2.0.4'
 
+
+# Temporarily use rsapi from git
+gem 'puppet-resource_api',
+  git: 'https://github.com/puppetlabs/puppet-resource_api.git',
+  ref: 'transport'
+
 # Required to pick up plan specs in the rake spec task
 # TODO: move to test group?
 gem "puppetlabs_spec_helper",

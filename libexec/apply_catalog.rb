@@ -55,16 +55,17 @@ begin
       exit 1
     end
 
-    # TODO: validate_target
-    special_keys = %w[type debug uri]
-    connection = conn_info.reject { |k, _| special_keys.include?(k) }
-    device = OpenStruct.new(connection)
-    device.url = conn_info['uri']
-    device.provider = conn_info['type']
-    device.options = { debug: true } if conn_info['debug']
+    require 'puppet/resource_api/transport'
+
+    # Transport.connect will modify this hash!
+    transport_conn_info =  conn_info.each_with_object({}) {|(k,v), h| h[k.to_sym] = v }
+
+    transport = Puppet::ResourceApi::Transport.connect(conn_info['type'], transport_conn_info)
+    transport_wrapper = Puppet::ResourceApi::Transport::Wrapper.new(conn_info['type'], transport)
+    Puppet::Util::NetworkDevice.instance_variable_set(:@current, transport_wrapper)
+
     Puppet[:facts_terminus] = :network_device
-    Puppet[:certname] = device.name
-    Puppet::Util::NetworkDevice.init(device)
+    Puppet[:certname] = conn_info['uri']
   end
 
   # Ensure custom facts are available for provider suitability tests
